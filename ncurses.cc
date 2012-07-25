@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <locale.h>
 
 using namespace std;
 using namespace v8;
@@ -433,6 +434,7 @@ class Window : public ObjectWrap {
     }
     
     void init(int nlines=-1, int ncols=-1, int begin_y=-1, int begin_x=-1) {
+      setlocale(LC_ALL, "");
       static bool firstRun = true;
       if (stdin_fd < 0) {
         stdin_fd = STDIN_FILENO;
@@ -2092,20 +2094,21 @@ class Window : public ObjectWrap {
 
       if (revents & EV_READ) {
         int chr;
-        char tmp[2];
+        uint16_t tmp[2];
         tmp[1] = 0;
-        while ((chr = getch()) != ERR) {
+        wint_t rtn;
+        while ((chr = get_wch(&rtn)) != ERR) {
           // 410 == KEY_RESIZE
-          if (chr == 410 || !topmost_panel || !topmost_panel->getWindow() || !topmost_panel->getPanel()) {
+          if (rtn == 410 || !topmost_panel || !topmost_panel->getWindow() || !topmost_panel->getPanel()) {
             //if (chr != 410)
             //  ungetch(chr);
             return;
           }
-          tmp[0] = chr;
-          Local<Value> vChr[3];
+          tmp[0] = rtn;
+          Local<Value> vChr[4];
           vChr[0] = String::New("inputChar");
           vChr[1] = String::New(tmp);
-          vChr[2] = Integer::New(chr);
+          vChr[2] = Integer::New(rtn);
           Local<Value> emit_v = topmost_panel->getWindow()->handle_->Get(emit_symbol);
           if (!emit_v->IsFunction()) return;
           Local<Function> emit = Local<Function>::Cast(emit_v);
